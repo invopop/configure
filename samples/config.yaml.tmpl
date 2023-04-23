@@ -1,0 +1,15 @@
+
+user_test:
+  type: "system"
+  name: {{ .USER }}
+  from_dotenv: {{ .FROM_DOTENV }}
+  default: {{ if .FOOO }}{{ .FOOO }}{{ else }}"bar"{{ end }}
+  default_or: "{{ or .FOOO `bar` }}"
+  embed: |-
+    {{ indent .EMBEDDED 2 }}
+  embed_if: |-
+    {{- if .EMBEDDED_IF }}
+    wrong
+    {{- else }}
+    no content
+    {{- end }}
