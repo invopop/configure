@@ -1,3 +1,5 @@
+// Package zeroconf helps configure the zerolog package using
+// a json configuration.
 package zeroconf
 
 import (

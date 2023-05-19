@@ -1,9 +1,11 @@
+// Package grpcconf helps configure gRPC service connections.
 package grpcconf
 
 import (
 	"context"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Service defines a generic base for dealing with connection details
@@ -26,7 +28,9 @@ type Service struct {
 func (s *Service) DialOptions() []grpc.DialOption {
 	opts := []grpc.DialOption{}
 	if s.Insecure {
-		opts = append(opts, grpc.WithInsecure())
+		opts = append(opts, grpc.WithTransportCredentials(
+			insecure.NewCredentials(),
+		))
 	}
 	return opts
 }

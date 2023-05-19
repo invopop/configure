@@ -1,3 +1,6 @@
+// Package configure makes it easier to load configuration files
+// from YAML documents and will handle environment variable
+// substitution.
 package configure
 
 import (
@@ -10,6 +13,8 @@ import (
 	"text/template"
 
 	"github.com/invopop/yaml"
+
+	// Load environment variables from .env file
 	_ "github.com/joho/godotenv/autoload"
 )
 
@@ -26,11 +31,7 @@ func parseConfigFile(file string, conf interface{}) error {
 		return fmt.Errorf("reading config file: %w", err)
 	}
 
-	env, err := envToMap()
-	if err != nil {
-		return fmt.Errorf("reading environment: %w", err)
-	}
-
+	env := envToMap()
 	funcs := template.FuncMap{
 		"indent": indent,
 	}
@@ -51,16 +52,15 @@ func parseConfigFile(file string, conf interface{}) error {
 	return nil
 }
 
-func envToMap() (map[string]string, error) {
+func envToMap() map[string]string {
 	env := make(map[string]string)
-	var err error
 
 	for _, v := range os.Environ() {
 		sv := strings.SplitN(v, "=", 2)
 		env[sv[0]] = sv[1]
 	}
 
-	return env, err
+	return env
 }
 
 // indent takes the string, finds all matching `\n`, and adds two

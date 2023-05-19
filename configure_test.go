@@ -6,6 +6,7 @@ import (
 
 	"github.com/invopop/configure"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type ExampleConf struct {
@@ -21,7 +22,7 @@ type ExampleConf struct {
 }
 
 func TestYAMLConfig(t *testing.T) {
-	os.Setenv("EMBEDDED", "sample\ntext")
+	require.NoError(t, os.Setenv("EMBEDDED", "sample\ntext"))
 	conf := new(ExampleConf)
 	err := configure.Load("samples/config.yaml.tmpl", conf)
 	assert.NoError(t, err)

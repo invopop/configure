@@ -1,3 +1,5 @@
+// Package natsconf helps configure NATS connections from
+// a JSON/YAML configuration source.
 package natsconf
 
 import (
@@ -15,7 +17,7 @@ const (
 	defaultMaxReconnects = -1
 )
 
-// NATS defines how to connect to the NATS servers.
+// Config defines how to connect to the NATS servers.
 type Config struct {
 	Name          string `json:"name"` // Optional client name for the connection
 	URL           string `json:"url"`
