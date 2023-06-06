@@ -50,6 +50,11 @@ func (conf *Config) Options() ([]nats.Option, error) {
 	}
 	opts = append(opts, nats.ReconnectWait(time.Duration(conf.ReconnectWait)*time.Millisecond))
 
+	// JWT and NKey Credentials File
+	if conf.Creds != "" {
+		opts = append(opts, nats.UserCredentials(conf.Creds))
+	}
+
 	copt, err := conf.CertificateOption()
 	if err != nil {
 		return nil, err
