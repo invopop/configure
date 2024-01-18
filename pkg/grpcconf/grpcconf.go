@@ -41,6 +41,8 @@ func (s *Service) URL() string {
 }
 
 // Connection provides an instance of the grpc connection.
-func (s *Service) Connection(ctx context.Context) (*grpc.ClientConn, error) {
-	return grpc.DialContext(ctx, s.URL(), s.DialOptions()...)
+func (s *Service) Connection(ctx context.Context, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	do := s.DialOptions()
+	do = append(do, opts...)
+	return grpc.DialContext(ctx, s.URL(), do...)
 }
