@@ -6,7 +6,6 @@ package configure
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -26,7 +25,7 @@ func Load(file string, conf interface{}) error {
 }
 
 func parseConfigFile(file string, conf interface{}) error {
-	data, err := ioutil.ReadFile(file)
+	data, err := os.ReadFile(file)
 	if err != nil {
 		return fmt.Errorf("reading config file: %w", err)
 	}

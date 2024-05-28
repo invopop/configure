@@ -7,7 +7,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	nats "github.com/nats-io/nats.go"
@@ -74,7 +74,7 @@ func (conf *Config) CertificateOption() (nats.Option, error) {
 			return nil, fmt.Errorf("failed to parse certs: %w", err)
 		}
 		pool := x509.NewCertPool()
-		root, err := ioutil.ReadFile(conf.TLS.CA)
+		root, err := os.ReadFile(conf.TLS.CA)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load CA file: %w", err)
 		}

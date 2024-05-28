@@ -2,8 +2,6 @@
 package grpcconf
 
 import (
-	"context"
-
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -41,8 +39,8 @@ func (s *Service) URL() string {
 }
 
 // Connection provides an instance of the grpc connection.
-func (s *Service) Connection(ctx context.Context, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+func (s *Service) Connection(opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	do := s.DialOptions()
 	do = append(do, opts...)
-	return grpc.DialContext(ctx, s.URL(), do...)
+	return grpc.NewClient(s.URL(), do...)
 }
