@@ -23,6 +23,8 @@ type Config struct {
 	URL           string `json:"url"`
 	MaxReconnects int    `json:"max_reconnects"` // default -1
 	ReconnectWait int    `json:"reconnect_wait"` // default 1000 (ms)
+	JWT           string `json:"jwt"`            // JWT credential text
+	NKey          string `json:"nkey"`           // NKey secret text
 	Creds         string `json:"creds"`          // NKey with JWT credentials file
 	TLS           struct {
 		ServerName string `json:"server_name"`
@@ -51,7 +53,9 @@ func (conf *Config) Options() ([]nats.Option, error) {
 	opts = append(opts, nats.ReconnectWait(time.Duration(conf.ReconnectWait)*time.Millisecond))
 
 	// JWT and NKey Credentials File
-	if conf.Creds != "" {
+	if conf.JWT != "" && conf.NKey != "" {
+		opts = append(opts, nats.UserJWTAndSeed(conf.JWT, conf.NKey))
+	} else if conf.Creds != "" {
 		opts = append(opts, nats.UserCredentials(conf.Creds))
 	}
 
