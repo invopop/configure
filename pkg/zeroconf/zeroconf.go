@@ -22,7 +22,7 @@ const (
 )
 
 const (
-	googleLevelFieldName = "severity"
+	levelFieldName = "level"
 )
 
 // Log defines the configurable paremeters supported.
@@ -35,7 +35,7 @@ type Log struct {
 func (l *Log) Init(role string) {
 	zerolog.TimeFieldFormat = ""
 	zerolog.SetGlobalLevel(l.Level.zlevel())
-	zerolog.LevelFieldName = googleLevelFieldName
+	zerolog.LevelFieldName = levelFieldName
 	zl := zerolog.New(os.Stderr)
 	if l.Console {
 		zl = log.Output(zerolog.ConsoleWriter{
