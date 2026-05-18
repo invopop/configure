@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	nats "github.com/nats-io/nats.go"
@@ -25,7 +26,7 @@ type Config struct {
 	ReconnectWait int    `json:"reconnect_wait"` // default 1000 (ms)
 	JWT           string `json:"jwt"`            // JWT credential text
 	NKey          string `json:"nkey"`           // NKey secret text
-	Creds         string `json:"creds"`          // NKey with JWT credentials file
+	Creds         string `json:"creds"`          // NKey with JWT credentials: either a file path or the decorated file's contents
 	TLS           struct {
 		ServerName string `json:"server_name"`
 		Cert       string `json:"cert"`
@@ -56,7 +57,7 @@ func (conf *Config) Options() ([]nats.Option, error) {
 	if conf.JWT != "" && conf.NKey != "" {
 		opts = append(opts, nats.UserJWTAndSeed(conf.JWT, conf.NKey))
 	} else if conf.Creds != "" {
-		opts = append(opts, nats.UserCredentials(conf.Creds))
+		opts = append(opts, credsOption(conf.Creds))
 	}
 
 	copt, err := conf.CertificateOption()
@@ -67,6 +68,18 @@ func (conf *Config) Options() ([]nats.Option, error) {
 		opts = append(opts, copt)
 	}
 	return opts, nil
+}
+
+// credsOption returns a nats.Option for the given creds value, treating it
+// as the decorated contents of a .creds file when it contains the PEM-style
+// header markers, and as a filesystem path otherwise. This lets the same
+// field carry either a path or the credentials supplied through an
+// environment variable.
+func credsOption(creds string) nats.Option {
+	if strings.Contains(creds, "-----BEGIN") {
+		return nats.UserCredentialBytes([]byte(creds))
+	}
+	return nats.UserCredentials(creds)
 }
 
 // CertificateOption generates a nats.Option for the configured
