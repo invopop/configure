@@ -2,8 +2,50 @@
 package grpcconf
 
 import (
+	"time"
+
 	"google.golang.org/grpc"
+	// Register the round_robin balancer so Policy == PolicyRoundRobin resolves
+	// at runtime. The core grpc package already pulls this in transitively, but
+	// importing it explicitly means an upstream change can't silently drop the
+	// balancer and revert us to pick_first.
+	_ "google.golang.org/grpc/balancer/roundrobin"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
+)
+
+// Load-balancing policies accepted by Service.Policy.
+const (
+	// PolicyPickFirst opens a single connection to one backend and stays on it
+	// for the life of the connection. This is gRPC's default and the zero value.
+	PolicyPickFirst = "pick_first"
+
+	// PolicyRoundRobin spreads calls across every backend address the resolver
+	// returns and drops failed sub-channels on re-resolution. Use it when the
+	// target is a *headless* Kubernetes Service (so DNS returns every pod IP);
+	// it is what stops a single rolled pod from taking out the client.
+	PolicyRoundRobin = "round_robin"
+)
+
+// roundRobinServiceConfig is the gRPC service config that selects the
+// round_robin balancer (registered via the blank import above).
+const roundRobinServiceConfig = `{"loadBalancingConfig":[{"round_robin":{}}]}`
+
+const (
+	// keepaliveTime is how long the connection can be idle before the client
+	// sends a keepalive ping. It must stay >= the server's keepalive
+	// EnforcementPolicy.MinTime (gRPC default 5m): pinging faster while a
+	// stream is active earns "ping strikes" and, after three, a too_many_pings
+	// GOAWAY that tears the connection down. Our servers run the default
+	// policy, so 5m is the safe floor. To detect dead peers faster, lower this
+	// AND relax the servers' EnforcementPolicy in tandem.
+	keepaliveTime = 5 * time.Minute
+
+	// keepaliveTimeout is how long to wait for a ping ack before considering
+	// the connection dead and closing it. This is what bounds a request stuck
+	// on a black-holed connection: without keepalive it hangs until the kernel
+	// TCP timeout (~15m); with it, ~keepaliveTime+keepaliveTimeout.
+	keepaliveTimeout = 20 * time.Second
 )
 
 // Service defines a generic base for dealing with connection details
@@ -19,12 +61,30 @@ type Service struct {
 	// PublicURL defines the base url to use when forwarding the user to
 	// public side of the service. Not all services required this.
 	PublicURL string `json:"public_url"`
+
+	// Policy selects the client-side load-balancing policy: PolicyPickFirst
+	// (the default, and the zero value) or PolicyRoundRobin. Any other value
+	// falls back to gRPC's default (pick_first).
+	Policy string `json:"policy"`
 }
 
 // DialOptions provides an array of gRPC DialOptions based on the
 // defined service configuration.
 func (s *Service) DialOptions() []grpc.DialOption {
-	opts := []grpc.DialOption{}
+	opts := []grpc.DialOption{
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:    keepaliveTime,
+			Timeout: keepaliveTimeout,
+			// PermitWithoutStream stays false: only ping while an RPC is in
+			// flight. That covers the case we care about (an in-flight request
+			// stalled on a dead connection) while avoiding idle pings, which
+			// the default server policy rejects outright.
+			PermitWithoutStream: false,
+		}),
+	}
+	if s.Policy == PolicyRoundRobin {
+		opts = append(opts, grpc.WithDefaultServiceConfig(roundRobinServiceConfig))
+	}
 	if s.Insecure {
 		opts = append(opts, grpc.WithTransportCredentials(
 			insecure.NewCredentials(),
@@ -38,7 +98,8 @@ func (s *Service) URL() string {
 	return s.Host + ":" + s.Port
 }
 
-// Connection provides an instance of the grpc connection.
+// Connection provides an instance of the grpc connection. Caller-supplied opts
+// are applied last, so a caller can override any of the defaults above.
 func (s *Service) Connection(opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	do := s.DialOptions()
 	do = append(do, opts...)
