@@ -34,18 +34,21 @@ const roundRobinServiceConfig = `{"loadBalancingConfig":[{"round_robin":{}}]}`
 const (
 	// keepaliveTime is how long the connection can be idle before the client
 	// sends a keepalive ping. It must stay >= the server's keepalive
-	// EnforcementPolicy.MinTime (gRPC default 5m): pinging faster while a
-	// stream is active earns "ping strikes" and, after three, a too_many_pings
-	// GOAWAY that tears the connection down. Our servers run the default
-	// policy, so 5m is the safe floor. To detect dead peers faster, lower this
-	// AND relax the servers' EnforcementPolicy in tandem.
-	keepaliveTime = 5 * time.Minute
+	// EnforcementPolicy.MinTime (10s in our services): pinging faster earns
+	// "ping strikes" and, after three, a too_many_pings GOAWAY that tears the
+	// connection down. 20s leaves margin above that floor while detecting a
+	// dead peer in well under a minute.
+	//
+	// REQUIRES the servers to run the relaxed EnforcementPolicy (MinTime 10s,
+	// PermitWithoutStream). Deploy those first; against the gRPC default policy
+	// (MinTime 5m) this interval would get connections GOAWAY'd.
+	keepaliveTime = 20 * time.Second
 
 	// keepaliveTimeout is how long to wait for a ping ack before considering
 	// the connection dead and closing it. This is what bounds a request stuck
 	// on a black-holed connection: without keepalive it hangs until the kernel
 	// TCP timeout (~15m); with it, ~keepaliveTime+keepaliveTimeout.
-	keepaliveTimeout = 20 * time.Second
+	keepaliveTimeout = 10 * time.Second
 )
 
 // Service defines a generic base for dealing with connection details
@@ -75,11 +78,11 @@ func (s *Service) DialOptions() []grpc.DialOption {
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:    keepaliveTime,
 			Timeout: keepaliveTimeout,
-			// PermitWithoutStream stays false: only ping while an RPC is in
-			// flight. That covers the case we care about (an in-flight request
-			// stalled on a dead connection) while avoiding idle pings, which
-			// the default server policy rejects outright.
-			PermitWithoutStream: false,
+			// Ping even with no active RPCs so idle pooled connections to a
+			// rolled pod are detected and dropped before the next request lands
+			// on them. Requires the servers' EnforcementPolicy to set
+			// PermitWithoutStream too, else the server GOAWAYs on idle pings.
+			PermitWithoutStream: true,
 		}),
 	}
 	if s.Policy == PolicyRoundRobin {
